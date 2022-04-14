@@ -78,7 +78,14 @@ impl IOptParse for OptParse
         for option in _options {
             self.parse_option( &option );
         }
-        // TODO: -h or --help and call print_help()
+        // -h or --help and call print_help()
+        let argc = &self.args.len();
+        for i in 0..*argc {
+            let arg = &self.args[i];
+            if arg.eq( "-h" ) || arg.starts_with( "--help" ){
+                self.print_help();
+            }
+        }
     }
 
     fn parse_option( &mut self, option : &OptParseItem ){
@@ -88,14 +95,14 @@ impl IOptParse for OptParse
         for i in 0..*argc {
             let arg = &self.args[i];
             if option.option.eq( arg ) {
-                // -h case
+                // -s case
                 if option.arg_required && ( (i+1) < *argc ) {
                     value = self.args[ i+1 ].clone();
                 } else {
                     found_set_true = true;
                 }
             } if arg.starts_with( &option.full_option ) {
-                // --help
+                // --something case
                 if option.arg_required {
                     let pos = arg.find("=");
                     match pos {
@@ -120,6 +127,7 @@ impl IOptParse for OptParse
         for i in 0..*c {
             println!("{}", &self.options[i].description )
         }
+        std::process::exit(0);
     }
 
     fn get_value( &self, option : &str ) -> String {
@@ -153,5 +161,20 @@ mod tests {
         assert_eq!( opt_parse.get_value("-r"), "44100" );
         assert_eq!( opt_parse.get_value("-e"), "PCM32" );
         assert_eq!( opt_parse.get_value("-c"), "2" );
+    }
+
+
+    #[test]
+    fn test_opt_parse_help() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-r", "--samplingRate", true, "48000", "Set Sampling Rate") );
+        options.push( OptParseItem::new( "-e", "--encoding", true, "PCM16", "Set Encoding PCM8, PCM16, PCM24, PCM32, PCMFLOAT") );
+        options.push( OptParseItem::new( "-c", "--channel", true, "2", "Set channel 2, 2.1, 4, 4.1, 5, 5.1, 5.1.2, 7.1") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "-h".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options );
+        opt_parse.parse_options();
     }
 }
