@@ -163,7 +163,6 @@ mod tests {
         assert_eq!( opt_parse.get_value("-c"), "2" );
     }
 
-
     #[test]
     fn test_opt_parse_help() {
         let mut options = Vec::new();
@@ -176,5 +175,40 @@ mod tests {
 
         let mut opt_parse = OptParse::new( argv, options );
         opt_parse.parse_options();
+    }
+
+    #[test]
+    fn test_opt_parse_exception_no_opt_parse_item() {
+        let options = Vec::new();
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "-r".to_string() );
+        argv.push( "44100".to_string());
+        argv.push( "--encoding=PCM32".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options );
+        opt_parse.parse_options();
+
+        assert_eq!( opt_parse.get_value("-r"), "" );
+        assert_eq!( opt_parse.get_value("-e"), "" );
+        assert_eq!( opt_parse.get_value("-c"), "" );
+    }
+
+    #[test]
+    fn test_opt_parse_no_arg() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-v", "--verbose", false, "false", "Enable verbose mode") );
+        options.push( OptParseItem::new( "-q", "--quiet", false, "false", "Enable quiet mode") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "-v".to_string() );
+        argv.push( "-s".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options );
+        opt_parse.parse_options();
+
+        assert_eq!( opt_parse.get_value("-v"), "true" );
+        assert_eq!( opt_parse.get_value("-q"), "false" );
+        assert_eq!( opt_parse.get_value("-s"), "" );
     }
 }
