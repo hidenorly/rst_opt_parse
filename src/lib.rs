@@ -15,6 +15,7 @@
 */
 
 use std::collections::HashMap;
+use std::cmp;
 
 #[derive(Clone)]
 pub struct OptParseItem
@@ -49,8 +50,8 @@ impl OptParseItem
 
 pub trait IOptParse
 {
-    fn new( argv : Vec<String>, options : Vec<OptParseItem> ) -> Self;
-    fn parse_options( &mut self );
+    fn new( args : Vec<String>, options : Vec<OptParseItem>, description : &str ) -> Self;
+    fn parse_options( &mut self, is_finish_if_help : bool );
     fn parse_option( &mut self, option : &OptParseItem );
     fn print_help(&self);
     fn get_value( &self, option : &str ) -> String;
@@ -61,19 +62,21 @@ pub struct OptParse
     args : Vec<String>,
     options : Vec<OptParseItem>,
     values : HashMap<String, String>,
+    description : String,
 }
 
 impl IOptParse for OptParse
 {
-    fn new( args : Vec<String>, options : Vec<OptParseItem> ) -> Self {
+    fn new( args : Vec<String>, options : Vec<OptParseItem>, description : &str ) -> Self {
         Self {
             args : args,
             options : options,
-            values : HashMap::new()
+            values : HashMap::new(),
+            description : description.to_string(),
         }
     }
 
-    fn parse_options( &mut self ){
+    fn parse_options( &mut self, is_finish_if_help : bool ){
         let  _options = &self.options.clone();
         for option in _options {
             self.parse_option( &option );
@@ -84,6 +87,9 @@ impl IOptParse for OptParse
             let arg = &self.args[i];
             if arg.eq( "-h" ) || arg.starts_with( "--help" ){
                 self.print_help();
+                if is_finish_if_help {
+                    std::process::exit(0);
+                }
             }
         }
     }
@@ -123,11 +129,19 @@ impl IOptParse for OptParse
     }
 
     fn print_help(&self){
-        let c = &self.options.len();
-        for i in 0..*c {
-            println!("{}", &self.options[i].description )
+        let options_len = &self.options.len();
+        let mut max_short_option_len : usize = 0;
+        let mut max_full_option_len : usize = 0;
+        for i in 0..*options_len {
+            max_short_option_len = cmp::max( max_short_option_len, self.options[i].option.len() );
+            max_full_option_len  = cmp::max( max_full_option_len,  self.options[i].full_option.len() );
         }
-        std::process::exit(0);
+        if !&self.description.is_empty() {
+            println!( "{}", &self.description );
+        }
+        for i in 0..*options_len {
+            println!( " {:short_len$}\t {:full_len$}\t : {}", &self.options[i].option, &self.options[i].full_option, &self.options[i].description, short_len = max_short_option_len, full_len = max_full_option_len );
+        }
     }
 
     fn get_value( &self, option : &str ) -> String {
@@ -155,8 +169,8 @@ mod tests {
         argv.push( "44100".to_string());
         argv.push( "--encoding=PCM32".to_string() );
 
-        let mut opt_parse = OptParse::new( argv, options );
-        opt_parse.parse_options();
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        opt_parse.parse_options( false );
 
         assert_eq!( opt_parse.get_value("-r"), "44100" );
         assert_eq!( opt_parse.get_value("-e"), "PCM32" );
@@ -173,8 +187,8 @@ mod tests {
         let mut argv : Vec<String> = Vec::new();
         argv.push( "-h".to_string() );
 
-        let mut opt_parse = OptParse::new( argv, options );
-        opt_parse.parse_options();
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        opt_parse.parse_options( false );
     }
 
     #[test]
@@ -186,8 +200,8 @@ mod tests {
         argv.push( "44100".to_string());
         argv.push( "--encoding=PCM32".to_string() );
 
-        let mut opt_parse = OptParse::new( argv, options );
-        opt_parse.parse_options();
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        opt_parse.parse_options( false );
 
         assert_eq!( opt_parse.get_value("-r"), "" );
         assert_eq!( opt_parse.get_value("-e"), "" );
@@ -204,8 +218,8 @@ mod tests {
         argv.push( "-v".to_string() );
         argv.push( "-s".to_string() );
 
-        let mut opt_parse = OptParse::new( argv, options );
-        opt_parse.parse_options();
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        opt_parse.parse_options( false );
 
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-q"), "false" );
