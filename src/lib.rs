@@ -53,8 +53,10 @@ pub trait IOptParse
     fn new( args : Vec<String>, options : Vec<OptParseItem>, description : &str ) -> Self;
     fn parse_options( &mut self, is_finish_if_help : bool );
     fn parse_option( &mut self, option : &OptParseItem );
-    fn print_help(&self);
+    fn print_help( &self );
     fn get_value( &self, option : &str ) -> String;
+    fn get_args_count( &self ) -> usize;
+    fn get_args(&self, index : usize ) -> String;
 }
 
 pub struct OptParse
@@ -62,6 +64,7 @@ pub struct OptParse
     args : Vec<String>,
     options : Vec<OptParseItem>,
     values : HashMap<String, String>,
+    arg_values : Vec<String>,
     description : String,
 }
 
@@ -72,6 +75,7 @@ impl IOptParse for OptParse
             args : args,
             options : options,
             values : HashMap::new(),
+            arg_values : Vec::new(),
             description : description.to_string(),
         }
     }
@@ -81,8 +85,10 @@ impl IOptParse for OptParse
         for option in _options {
             self.parse_option( &option );
         }
-        // -h or --help and call print_help()
+
         let argc = &self.args.len();
+
+        // -h or --help and call print_help()
         for i in 0..*argc {
             let arg = &self.args[i];
             if arg.eq( "-h" ) || arg.starts_with( "--help" ){
@@ -91,6 +97,22 @@ impl IOptParse for OptParse
                     std::process::exit(0);
                 }
             }
+        }
+
+        // parse args
+        let mut i : usize = 0;
+        while i < *argc {
+            let arg = &self.args[i];
+            if arg.starts_with( "-" ){
+                for option in _options {
+                    if arg.eq( &option.option ) && option.arg_required {
+                        i = i + 1;
+                    }
+                }
+            } else {
+                self.arg_values.push( arg.to_string() );
+            }
+            i = i + 1;
         }
     }
 
@@ -149,6 +171,18 @@ impl IOptParse for OptParse
             Some( v ) => v.to_string(),
             None => String::from("")
         }
+    }
+
+    fn get_args_count(&self) -> usize {
+        self.arg_values.len()
+    }
+
+    fn get_args(&self, index : usize ) -> String {
+        let mut result = String::from("");
+        if index < self.get_args_count() {
+            result = self.arg_values[ index ].to_string();
+        }
+        result
     }
 }
 
@@ -224,5 +258,33 @@ mod tests {
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-q"), "false" );
         assert_eq!( opt_parse.get_value("-s"), "" );
+    }
+
+    #[test]
+    fn test_opt_parse_args() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-v", "--verbose", false, "false", "Enable verbose mode") );
+        options.push( OptParseItem::new( "-s", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "input.csv".to_string() );
+        argv.push( "-v".to_string() );
+        argv.push( "output1.csv".to_string() );
+        argv.push( "--samplingRate=44100".to_string() );
+        argv.push( "output2.csv".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        opt_parse.parse_options( false );
+
+        assert_eq!( opt_parse.get_value("-v"), "true" );
+        assert_eq!( opt_parse.get_value("-s"), "44100" );
+        assert_eq!( opt_parse.get_value("-x"), "" );
+
+        assert_eq!( opt_parse.get_args_count(), 3 );
+        assert_eq!( opt_parse.get_args(0), "input.csv" );
+        assert_eq!( opt_parse.get_args(0), "input.csv" );
+        assert_eq!( opt_parse.get_args(1), "output1.csv" );
+        assert_eq!( opt_parse.get_args(2), "output2.csv" );
+        assert_eq!( opt_parse.get_args(3), "" );
     }
 }
