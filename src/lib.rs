@@ -124,8 +124,16 @@ impl IOptParse for OptParse
             let arg = &self.args[i];
             if option.option.eq( arg ) {
                 // -s case
-                if option.arg_required && ( (i+1) < *argc ) {
-                    value = self.args[ i+1 ].clone();
+                if option.arg_required {
+                    if (i+1) < *argc  {
+                        if !self.args[ i+1 ].starts_with("-") {
+                            value = self.args[ i+1 ].clone();
+                        } else {
+                            // TODO: this is arg required case but i+1 is not the value for the option
+                        }
+                    } else {
+                        // TODO: this is arg required case but i+1 isn't present
+                    }
                 } else {
                     found_set_true = true;
                 }
@@ -258,6 +266,24 @@ mod tests {
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-q"), "false" );
         assert_eq!( opt_parse.get_value("-s"), "" );
+    }
+
+    #[test]
+    fn test_opt_parse_arg_required_but_nothing() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-v", "--verbose", false, "false", "Enable verbose mode") );
+        options.push( OptParseItem::new( "-s", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "-s".to_string() );
+        argv.push( "-v".to_string() ); // Expects the -s's value here but not specified
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        opt_parse.parse_options( false );
+
+        assert_eq!( opt_parse.get_value("-v"), "true" );
+        assert_eq!( opt_parse.get_value("-s"), "48000" );
+        assert_eq!( opt_parse.get_value("-x"), "" );
     }
 
     #[test]
