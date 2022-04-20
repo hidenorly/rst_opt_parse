@@ -51,8 +51,8 @@ impl OptParseItem
 pub trait IOptParse
 {
     fn new( args : Vec<String>, options : Vec<OptParseItem>, description : &str ) -> Self;
-    fn parse_options( &mut self, is_finish_if_help : bool );
-    fn parse_option( &mut self, option : &OptParseItem );
+    fn parse_options( &mut self, is_finish_if_help : bool ) -> bool;
+    fn parse_option( &mut self, option : &OptParseItem ) -> bool;
     fn print_help( &self );
     fn get_value( &self, option : &str ) -> String;
     fn get_args_count( &self ) -> usize;
@@ -80,10 +80,12 @@ impl IOptParse for OptParse
         }
     }
 
-    fn parse_options( &mut self, is_finish_if_help : bool ){
+    fn parse_options( &mut self, is_finish_if_help : bool ) -> bool {
+        let mut result = true;
+
         let  _options = &self.options.clone();
         for option in _options {
-            self.parse_option( &option );
+            result = result & self.parse_option( &option );
         }
 
         let argc = &self.args.len();
@@ -114,9 +116,13 @@ impl IOptParse for OptParse
             }
             i = i + 1;
         }
+
+        result
     }
 
-    fn parse_option( &mut self, option : &OptParseItem ){
+    fn parse_option( &mut self, option : &OptParseItem ) -> bool {
+        let mut result = true;
+
         let argc = &self.args.len();
         let mut value : String = option.value.clone();
         let mut found_set_true = false;
@@ -129,10 +135,13 @@ impl IOptParse for OptParse
                         if !self.args[ i+1 ].starts_with("-") {
                             value = self.args[ i+1 ].clone();
                         } else {
-                            // TODO: this is arg required case but i+1 is not the value for the option
+                            // this is arg required case but i+1 is not the value for the option
+                            result = false;
                         }
                     } else {
-                        // TODO: this is arg required case but i+1 isn't present
+                        // this is arg required case but i+1 isn't present
+                        result = false;
+
                     }
                 } else {
                     found_set_true = true;
@@ -145,7 +154,7 @@ impl IOptParse for OptParse
                         Some(the_pos) => {
                             value = arg[the_pos+1..].to_string();
                         },
-                        None => {}
+                        None => { result = false }
                     }
                 } else {
                     found_set_true = true;
@@ -155,7 +164,13 @@ impl IOptParse for OptParse
         if found_set_true {
             value = "true".to_string();
         }
-        let _ = &self.values.insert( option.option.clone(), value );
+        let mut key = option.option.clone();
+        if key.is_empty() {
+            key = option.full_option.clone();
+        }
+        let _ = &self.values.insert( key, value );
+
+        result
     }
 
     fn print_help(&self){
@@ -212,7 +227,8 @@ mod tests {
         argv.push( "--encoding=PCM32".to_string() );
 
         let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-        opt_parse.parse_options( false );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
 
         assert_eq!( opt_parse.get_value("-r"), "44100" );
         assert_eq!( opt_parse.get_value("-e"), "PCM32" );
@@ -230,7 +246,10 @@ mod tests {
         argv.push( "-h".to_string() );
 
         let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-        opt_parse.parse_options( false );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
+
+        assert_eq!( opt_parse.get_value("-h"), "" );
     }
 
     #[test]
@@ -243,7 +262,8 @@ mod tests {
         argv.push( "--encoding=PCM32".to_string() );
 
         let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-        opt_parse.parse_options( false );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
 
         assert_eq!( opt_parse.get_value("-r"), "" );
         assert_eq!( opt_parse.get_value("-e"), "" );
@@ -261,7 +281,8 @@ mod tests {
         argv.push( "-s".to_string() );
 
         let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-        opt_parse.parse_options( false );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
 
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-q"), "false" );
@@ -279,7 +300,8 @@ mod tests {
         argv.push( "-v".to_string() ); // Expects the -s's value here but not specified
 
         let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-        opt_parse.parse_options( false );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, false );
 
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-s"), "48000" );
@@ -300,7 +322,8 @@ mod tests {
         argv.push( "output2.csv".to_string() );
 
         let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-        opt_parse.parse_options( false );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
 
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-s"), "44100" );
