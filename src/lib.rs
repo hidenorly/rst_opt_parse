@@ -336,4 +336,25 @@ mod tests {
         assert_eq!( opt_parse.get_args(2), "output2.csv" );
         assert_eq!( opt_parse.get_args(3), "" );
     }
+
+    #[test]
+    fn test_opt_parse_full_option_only() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-v", "--verbose", false, "false", "Enable verbose mode") );
+        options.push( OptParseItem::new( "", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "input.csv".to_string() );
+        argv.push( "-v".to_string() );
+        argv.push( "--samplingRate=44100".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
+
+        assert_eq!( opt_parse.get_value("-v"), "true" );
+        assert_eq!( opt_parse.get_value("-s"), "" );
+        assert_eq!( opt_parse.get_value("--samplingRate"), "44100" );
+        assert_eq!( opt_parse.get_value("-x"), "" );
+    }
 }
