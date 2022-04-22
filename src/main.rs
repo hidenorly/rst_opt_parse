@@ -31,4 +31,8 @@ fn main() {
     opt_parse.parse_options( false );
 
     println!( "encoding:{}, samplingRate:{}, channel:{}", opt_parse.get_value("-e"), opt_parse.get_value("-s"), opt_parse.get_value("-c") );
+
+    for i in 0..opt_parse.get_args_count(){
+        println!("{}:{}", i, opt_parse.get_args(i) );
+    }
 }
