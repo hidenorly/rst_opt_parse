@@ -64,6 +64,7 @@ pub struct OptParse
     args : Vec<String>,
     options : Vec<OptParseItem>,
     values : HashMap<String, String>,
+    alias : HashMap<String, String>,
     arg_values : Vec<String>,
     description : String,
 }
@@ -75,6 +76,7 @@ impl IOptParse for OptParse
             args : args,
             options : options,
             values : HashMap::new(),
+            alias : HashMap::new(),
             arg_values : Vec::new(),
             description : description.to_string(),
         }
@@ -168,6 +170,7 @@ impl IOptParse for OptParse
         if key.is_empty() {
             key = option.full_option.clone();
         }
+        let _ = &self.alias.insert( option.full_option.clone(), key.clone() );
         let _ = &self.values.insert( key, value );
 
         result
@@ -190,7 +193,14 @@ impl IOptParse for OptParse
     }
 
     fn get_value( &self, option : &str ) -> String {
-        match self.values.get( option ){
+        let mut key = option.to_string();
+
+        match self.alias.get( option ){
+            Some( v ) => { key = v.to_string(); },
+            None => {}
+        }
+
+        match self.values.get( &key ){
             Some( v ) => v.to_string(),
             None => String::from("")
         }
@@ -354,6 +364,30 @@ mod tests {
 
         assert_eq!( opt_parse.get_value("-v"), "true" );
         assert_eq!( opt_parse.get_value("-s"), "" );
+        assert_eq!( opt_parse.get_value("--samplingRate"), "44100" );
+        assert_eq!( opt_parse.get_value("-x"), "" );
+    }
+
+
+    #[test]
+    fn test_opt_parse_full_option_alias() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-e", "--encoding", true, "PCM16", "Set Encoding PCM8, PCM16, PCM24, PCM32, PCMFLOAT") );
+        options.push( OptParseItem::new( "-s", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "input.csv".to_string() );
+        argv.push( "-e".to_string() );
+        argv.push( "PCM32".to_string() );
+        argv.push( "--samplingRate=44100".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        let is_success = opt_parse.parse_options( false );
+        assert_eq!( is_success, true );
+
+        assert_eq!( opt_parse.get_value("-e"), "PCM32" );
+        assert_eq!( opt_parse.get_value("--encoding"), "PCM32" );
+        assert_eq!( opt_parse.get_value("-s"), "44100" );
         assert_eq!( opt_parse.get_value("--samplingRate"), "44100" );
         assert_eq!( opt_parse.get_value("-x"), "" );
     }
