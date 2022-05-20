@@ -27,8 +27,9 @@ fn main() {
 
     let argv: Vec<String> = env::args().collect();
 
-    let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
-    opt_parse.parse_options( false );
+    let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test  e.g.input1.pcm input2.pcm -s 44100" );
+    opt_parse.parse_options_with_required_args( true, 1, -1 );
+    /* if --help is specified, following lines are not executed since true is specified */
 
     println!( "encoding:{}, samplingRate:{}, channel:{}", opt_parse.get_value("-e"), opt_parse.get_value("-s"), opt_parse.get_value("-c") );
 

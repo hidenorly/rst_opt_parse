@@ -51,6 +51,7 @@ impl OptParseItem
 pub trait IOptParse
 {
     fn new( args : Vec<String>, options : Vec<OptParseItem>, description : &str ) -> Self;
+    fn parse_options_with_required_args( &mut self, is_finish_if_help : bool, num_of_min_required_args : i32, num_of_max_required_args : i32 ) -> bool;
     fn parse_options( &mut self, is_finish_if_help : bool ) -> bool;
     fn parse_option( &mut self, option : &OptParseItem ) -> bool;
     fn print_help( &self );
@@ -81,6 +82,22 @@ impl IOptParse for OptParse
             description : description.to_string(),
         }
     }
+
+    fn parse_options_with_required_args( &mut self, is_finish_if_help : bool, num_of_min_required_args : i32, num_of_max_required_args : i32 ) -> bool {
+        let mut result = self.parse_options( is_finish_if_help );
+        let current_num_of_args : i32 = ( self.get_args_count() - 1 ).try_into().unwrap();
+
+        if ( current_num_of_args < num_of_min_required_args ) || ( ( num_of_max_required_args >= 0 ) && ( current_num_of_args > num_of_max_required_args ) ) {
+            result = false;
+            self.print_help();
+            if is_finish_if_help == true {
+                std::process::exit(0);
+            }
+        }
+
+        result
+    }
+
 
     fn parse_options( &mut self, is_finish_if_help : bool ) -> bool {
         let mut result = true;
@@ -368,7 +385,6 @@ mod tests {
         assert_eq!( opt_parse.get_value("-x"), "" );
     }
 
-
     #[test]
     fn test_opt_parse_full_option_alias() {
         let mut options = Vec::new();
@@ -390,5 +406,65 @@ mod tests {
         assert_eq!( opt_parse.get_value("-s"), "44100" );
         assert_eq!( opt_parse.get_value("--samplingRate"), "44100" );
         assert_eq!( opt_parse.get_value("-x"), "" );
+    }
+
+
+    #[test]
+    fn test_opt_parse_with_args_fixed() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-e", "--encoding", true, "PCM16", "Set Encoding PCM8, PCM16, PCM24, PCM32, PCMFLOAT") );
+        options.push( OptParseItem::new( "-s", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "mycommands".to_string() );
+        argv.push( "input.csv".to_string() );
+        argv.push( "-e".to_string() );
+        argv.push( "PCM32".to_string() );
+        argv.push( "--samplingRate=44100".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        let is_success = opt_parse.parse_options_with_required_args( false, 1, 1 ); // ensure argument e.g. input.csv
+        assert_eq!( opt_parse.get_args_count(), 2 ); // 0:mycommand, 1:input.csv
+        assert_eq!( is_success, true );
+    }
+
+    #[test]
+    fn test_opt_parse_with_args_max_specified() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-e", "--encoding", true, "PCM16", "Set Encoding PCM8, PCM16, PCM24, PCM32, PCMFLOAT") );
+        options.push( OptParseItem::new( "-s", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "mycommands".to_string() );
+        argv.push( "input1.csv".to_string() );
+        argv.push( "input2.csv".to_string() );
+        argv.push( "input3.csv".to_string() );
+        argv.push( "-e".to_string() );
+        argv.push( "PCM32".to_string() );
+        argv.push( "--samplingRate=44100".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        let is_success = opt_parse.parse_options_with_required_args( false, 1, 2 ); // ensure argument e.g. input.csv
+        assert_eq!( is_success, false );
+    }
+
+    #[test]
+    fn test_opt_parse_with_args_more_than_min() {
+        let mut options = Vec::new();
+        options.push( OptParseItem::new( "-e", "--encoding", true, "PCM16", "Set Encoding PCM8, PCM16, PCM24, PCM32, PCMFLOAT") );
+        options.push( OptParseItem::new( "-s", "--samplingRate", true, "48000", "Set sampling rate e.g. 44100") );
+
+        let mut argv : Vec<String> = Vec::new();
+        argv.push( "mycommands".to_string() );
+        argv.push( "input1.csv".to_string() );
+        argv.push( "input2.csv".to_string() );
+        argv.push( "input3.csv".to_string() );
+        argv.push( "-e".to_string() );
+        argv.push( "PCM32".to_string() );
+        argv.push( "--samplingRate=44100".to_string() );
+
+        let mut opt_parse = OptParse::new( argv, options, "rst_opt_parse_test" );
+        let is_success = opt_parse.parse_options_with_required_args( false, 1, -1 ); // ensure argument e.g. input.csv
+        assert_eq!( is_success, true );
     }
 }
